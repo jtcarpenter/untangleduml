@@ -1,0 +1,169 @@
+/* stylesheet for popup display */
+
+#popup{    
+    border:1px solid #999;
+    background: #eee;
+    position:absolute;
+    width:500px;
+    height:300px;
+    top:150px;
+    left: 50%;
+    margin-left: -250px;
+    z-index: 3000;
+    -moz-box-shadow: 0px 0px 5px #888;
+    -webkit-box-shadow: 0px 0px 5px #888;
+    box-shadow: 0px 0px 5px #888;
+    -moz-border-radius:10px 10px 10px 10px;
+    border-radius:10px 10px 10px 10px;
+    padding:10px;
+    opacity:1;
+    font-family: Lucida Grande, Verdana, Sans-serif;
+    overflow:auto;
+}
+
+.visible{
+    display: block;
+}
+
+.invisible{
+    display: none;
+}
+
+#popup #popup_contents{
+    padding:20px;
+    color:#5a4538;
+}
+
+#popup #close{
+    width:20px;
+    height:20px;
+    border:2px solid #555;
+    text-align: center;
+    line-height: 20px;
+    cursor:pointer;
+    color:#555;
+}
+
+#popup #close:hover{
+    font-weight: bold;
+    color:#333;
+    background:#fff;
+    border:2px solid #333;
+}
+
+/*
+ * content inside popup
+ */
+#popup table{
+    color:inherit;
+}
+
+#popup table td{
+    padding:2px;
+}
+
+#popup input[type="text"],#popup input[type="email"],#popup input[type="password"]{
+    border:1px solid #aa9588;
+    font-size: 1.2em;
+    color:#4a3528;
+}
+
+#popup input:focus{
+    border:1px solid #5a4538;
+    -moz-box-shadow: 0px 0px 5px #5a4538;
+    -webkit-box-shadow: 0px 0px 5px #5a4538;
+    box-shadow: 0px 0px 5px #5a4538;
+}
+
+#popup input[type="submit"]{
+    margin:10px 0;
+    font-size: 1.2em;
+    color:#4a3528;
+}
+
+#popup p{
+    margin:5px;
+}
+
+#popup p[id="app"]{
+    margin-top:10px;
+}
+
+.disabled{
+    opacity:0.6;
+}
+
+.enabled{
+    opacity:1;
+}
+
+a:hover{
+    color:#5a4538;
+}
+
+#popup li{
+    margin:5px 0;
+}
+
+/*
+ * sharing view specific
+ */
+#sharingSearch{
+    text-align: center;
+}
+
+#popup #sharingTable{
+    margin:auto;
+}
+
+#popup #sharingWrapper, #popup #diagramsWrapper{
+    height:200px;
+    overflow: auto;
+}
+
+#popup #sharingTable td,#popup #sharingTable th{
+    text-align: center;
+    padding:5px 10px;
+    border:1px solid #aa9588;
+}
+
+#popup #sharingTable a{
+    margin:0 0 0 15px;
+}
+
+/*
+ * documentation view specific
+ */
+#documentation{
+    height:235px;
+    overflow:auto;
+    font-size: 0.8em;
+    color:#444;
+}
+
+#documentation h2{
+    padding:0 10px;
+    font-size: 1.2em;
+    color:#5a4538;
+}
+
+#documentation th{
+    color:#5a4538;
+}
+
+#documentation table{
+    margin-right: 10px;
+}
+
+#documentation td,#documentation th{
+    padding:10px;
+    vertical-align:middle;
+}
+
+#documentation p{
+    padding:10px 5px;
+}
+
+
+
+

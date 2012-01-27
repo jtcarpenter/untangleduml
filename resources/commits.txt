@@ -1,0 +1,4 @@
+Fixed QUnit test runner url problem for real
+Added error disabling for controller test and rinse
+Fixed demonstration save bug
+Removed sateTest

@@ -1,0 +1,214 @@
+---------------------------------------------
+CreateDiagram
+---------------------------------------------
+alt diagram open
+    NewUser-><<JS>\nDispatcher: new()
+    activate NewUser
+    activate <<JS>\nDispatcher
+    <<JS>\nDispatcher-->NewUser:
+    deactivate <<JS>\nDispatcher
+end
+
+note right of NewUser 
+NewUser enters diagram
+semantics into text editor
+and clicks 'update'
+end note
+
+alt syntax correct
+
+NewUser-><<JS>\nDispatcher: update()
+activate <<JS>\nDispatcher
+<<JS>\nDispatcher-><<JS>\nSpinner: spin(target)
+activate <<JS>\nSpinner
+<<JS>\nSpinner--><<JS>\nDispatcher:
+<<JS>\nDispatcher-><<JS>\nReader: read()
+activate <<JS>\nReader
+<<JS>\nReader--><<JS>\nDispatcher: Graph
+deactivate <<JS>\nReader
+<<JS>\nDispatcher-><<JS>\nHighlighter: highlight()
+activate <<JS>\nHighlighter
+<<JS>\nHighlighter--><<JS>\nDispatcher:
+deactivate <<JS>\nHighlighter
+<<JS>\nDispatcher-><<JS>\nAssimilator: assim(graph,newGraph)
+activate <<JS>\nAssimilator
+<<JS>\nAssimilator--><<JS>\nDispatcher: Graph
+deactivate <<JS>\nAssimilator
+<<JS>\nDispatcher-><<JS>\nPainter: paint(graph)
+activate <<JS>\nPainter
+<<JS>\nPainter--><<JS>\nDispatcher:
+deactivate <<JS>\nPainter
+<<JS>\nDispatcher-><<JS>\nSpinner:stop()
+<<JS>\nSpinner--><<JS>\nDispatcher:
+deactivate <<JS>\nSpinner
+<<JS>\nDispatcher-->NewUser:
+deactivate NewUser
+
+note right of NewUser
+diagram is displayed 
+in drawing panel
+end note
+
+end
+
+---------------------------------------------
+SaveDiagram
+---------------------------------------------
+note right of Owner
+Owner clicks 'save'
+(Owner is logged in)
+end note
+
+Owner-><<JS>>\nDispatcher:save()
+activate Owner
+activate <<JS>>\nDispatcher
+
+alt graph=null
+    <<JS>>\nDispatcher-->Owner:
+    note right of Owner
+    application informs Owner
+    that there is no graph
+    end note
+else
+
+<<JS>>\nDispatcher-><<JS>>\nSpinner:spin(target)
+activate <<JS>>\nSpinner
+<<JS>>\nSpinner--><<JS>>\nDispatcher:
+<<JS>>\nDispatcher-><<PHP>>\nEditor:save(XMLHTTPRequest)
+activate <<PHP>>\nEditor
+
+<<PHP>>\nEditor-><<PHP>>\nDiagram_model:save_diagram(Array)
+activate <<PHP>>\nDiagram_model
+
+alt diagram is new
+    <<PHP>>\nDiagram_model-><<MySQL>>\nDB: insert
+    activate <<MySQL>>\nDB
+
+    note right of <<PHP>>\nDiagram_model
+    Diagram JSON string is
+    written to new text file
+    end note
+else
+    <<PHP>>\nDiagram_model-><<MySQL>>\nDB: update
+
+    note right of <<PHP>>\nDiagram_model
+    Diagram JSON string is
+    written to existing text file
+    end note
+end
+
+<<MySQL>>\nDB--><<PHP>>\nDiagram_model:
+deactivate <<MySQL>>\nDB
+
+<<PHP>>\nDiagram_model--><<PHP>>\nEditor:
+deactivate <<PHP>>\nDiagram_model
+<<PHP>>\nEditor--><<JS>>\nDispatcher:XMLHTTPResponse
+deactivate <<PHP>>\nEditor
+<<JS>>\nDispatcher-><<JS>>\nSpinner:stop()
+<<JS>>\nSpinner--><<JS>>\nDispatcher:
+deactivate <<JS>>\nSpinner
+<<JS>>\nDispatcher-->Owner:
+deactivate <<JS>>\nDispatcher
+
+note right of Owner
+application informs Owner
+if save was successful or not
+end note
+
+deactivate Owner
+end note
+
+---------------------------------------------
+LoadDiagram
+---------------------------------------------
+note right of Owner
+Owner clicks 'load'
+(Owner is logged in)
+end note
+
+Owner-><<JS>>\nDispatcher:load()
+activate Owner
+activate <<JS>>\nDispatcher
+
+<<JS>>\nDispatcher-><<JS>>\nSpinner:spin(target)
+activate <<JS>>\nSpinner
+<<JS>>\nSpinner--><<JS>>\nDispatcher:
+<<JS>>\nDispatcher-><<PHP>>\nEditor:diagrams(XMLHTTPRequest)
+activate <<PHP>>\nEditor
+
+<<PHP>>\nEditor-><<PHP>>\nDiagram_model:get_user_diagrams()
+activate <<PHP>>\nDiagram_model
+<<PHP>>\nDiagram_model-><<MySQL>>\nDB:select
+activate<<MySQL>>\nDB
+<<MySQL>>\nDB--><<PHP>>\nDiagram_model:
+deactivate <<MySQL>>\nDB
+
+
+<<PHP>>\nDiagram_model--><<PHP>>\nEditor:
+deactivate <<PHP>>\nDiagram_model
+
+<<PHP>>\nEditor--><<JS>>\nDispatcher:XMLHTTPRequest
+deactivate <<PHP>>\nEditor
+
+<<JS>>\nDispatcher-><<JS>>\nSpinner:stop()
+<<JS>>\nSpinner--><<JS>>\nDispatcher:
+deactivate <<JS>>\nSpinner
+
+<<JS>>\nDispatcher-->Owner:
+
+
+alt diagrams available
+
+    note right of Owner
+    a list of Owner's
+    diagrams are displayed
+    end note
+
+    note right of Owner
+    Owner clicks a diagram title
+    end note
+
+    Owner-><<JS>>\nDispatcher:loadGraph(String,Boolean)
+    <<JS>>\nDispatcher-><<JS>>\nSpinner:spin(target)
+    activate <<JS>>\nSpinner
+    <<JS>>\nSpinner--><<JS>>\nDispatcher:
+
+    <<JS>>\nDispatcher-><<PHP>>\nEditor:load(XMLHTTPRequest)
+    activate <<PHP>>\nEditor
+    <<PHP>>\nEditor-><<PHP>>\nDiagram_model:get_diagram_str(String)
+    activate <<PHP>>\nDiagram_model
+
+   
+
+    <<PHP>>\nDiagram_model--><<PHP>>\nEditor:String
+    deactivate <<PHP>>\nDiagram_model
+    <<PHP>>\nEditor--><<JS>>\nDispatcher:XMLHTTPRequest
+    deactivate <<PHP>>\nEditor
+    
+    <<JS>>\nDispatcher-><<JS>>\nPainter:paint(Graph)
+    activate <<JS>>\nPainter
+    <<JS>>\nPainter--><<JS>>\nDispatcher:
+    deactivate <<JS>>\nPainter
+
+    <<JS>>\nDispatcher-><<JS>>\nWriter:write(Graph)
+    activate <<JS>>\nWriter
+    <<JS>>\nWriter--><<JS>>\nDispatcher:
+    deactivate <<JS>>\nWriter
+
+    <<JS>>\nDispatcher-><<JS>>\nHighlighter:highlight()
+    activate <<JS>>\nHighlighter
+    <<JS>>\nHighlighter--><<JS>>\nDispatcher:
+    deactivate <<JS>>\nHighlighter
+    
+    <<JS>>\nDispatcher-><<JS>>\nSpinner:stop()
+    <<JS>>\nSpinner--><<JS>>\nDispatcher:
+    deactivate <<JS>>\nSpinner
+    <<JS>>\nDispatcher-->Owner:
+
+    note right of Owner
+    diagram is displayed
+    end note
+
+deactivate <<JS>>\nDispatcher
+
+

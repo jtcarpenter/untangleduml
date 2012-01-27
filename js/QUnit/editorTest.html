@@ -1,0 +1,1084 @@
+<!-- Javascript unit test suite for QUnit -->
+<!-- @author Jason Carpenter -->
+<!doctype html>
+<html>
+  <head>
+    <script>
+
+    /*
+     * function for setting base url
+     */
+    function getBaseURL(){
+        var url = location.href;
+        var index = url.indexOf("/js/QUnit/editorTest.html");
+        var baseURL = url.substr(0,index);
+        if(baseURL.substr(baseURL.length-1,baseURL.length)!="/")
+            baseURL += "/";
+        return baseURL;
+    }
+    
+    document.write('<base href="'+getBaseURL()+'">');
+    </script>
+    
+    <title>QUnit Javascript Unit Test Runner</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link type="text/css" rel="stylesheet" href="js/QUnit/QUnit.css"/>
+    <script type="text/javascript" src="js/jquery-1.6.1.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.8.14.custom.min.js"></script>
+    <script type="text/javascript" src="js/jquery.jsPlumb-1.3.2-all-min.js"></script>
+    <script type="text/javascript" src="js/spin.min.js"></script>
+    <script type="text/javascript" src="js/Dispatcher.js"></script>
+    <script type="text/javascript" src="js/Language.js"></script>
+    <script type="text/javascript" src="js/Painter.js"></script>
+    <script type="text/javascript" src="js/Reader.js"></script>
+    <script type="text/javascript" src="js/Writer.js"></script>
+    <script type="text/javascript" src="js/Assimilator.js"></script>
+    <script type="text/javascript" src="js/Highlighter.js"></script>
+    <script type="text/javascript" src="js/Qunit/MockGraphBuilder.js"></script>
+    <script type="text/javascript" src="js/editor.js"></script>
+    <script type="text/javascript" src="js/QUnit/QUnit.js"></script>
+
+    <style type="text/css">
+        .invalid{
+            color:#f00;
+        }
+        #text_panel #text_editor{
+            white-space: pre;
+        }
+        
+    </style>
+
+
+    <script type="text/javascript">
+
+    $(document).ready(function(){
+        //declare mocks and shared vars
+        var baseURL='index.php/';
+        var textInput1;
+        var textInput2;
+        var textInput3;
+        var elementInput1;
+        var elementInput2;
+        var elementInput3;
+        var elementInput4;
+        var badElementInput1;
+        var badElementInput2;
+        var relationshipInput1;
+        var relationshipInput2;
+        var endInput1;
+        var endInput2;
+        var relTypeInput1;
+        var relTypeInput2;
+        var mockSimple;
+        var mockObserver;
+        var observerElStr;
+        var observerRelStr;
+        var observerStr;
+        var mockInterpreter;
+        var mockRecursive;
+        var oldGraph;
+        var newGraph;
+        var clickEvent;
+        var html1;
+        var htmlNames;
+        var htmlEnds;
+        var htmlIds;
+        var htmlReservedWords;
+        var txt1;
+        var htmlHighlit;
+        var cleanHtml;
+        var uncleanHtml;
+        var htmlStereotypes;
+        var specialHtml;
+
+        /*
+         * Dispatcher Module
+         */
+        module("Dispatcher Module", {
+            setup: function() {
+                $('#drawing_panel').empty();
+                mockSimple = MockGraphBuilder.getSimpleGraph();
+                Painter.paint(mockSimple);
+                Dispatcher.addEventListeners();
+                clickEvent = $.Event("click");
+            },
+            teardown: function() {
+                $('#drawing_panel').empty();
+                Dispatcher.removeEventListeners();
+            }
+        });
+
+        test("addEventListenersTest",function(){
+            var controlEventTypes = [];
+            var boxEventTypes = [];
+            var textPanelEventTypes = [];
+            var textEditorEventTypes = [];
+            $.each($("#fresh").data("events"), function(i, e) {controlEventTypes.push(i);});
+            $.each($("#object1").data("events"), function(i, e) {boxEventTypes.push(i);});
+            $.each($("#text_panel").data("events"), function(i, e) {textPanelEventTypes.push(i);});
+
+            equal(controlEventTypes.length,1,'element with class control has one event registered');
+            equal(controlEventTypes[0],'click','event type is "click"');
+            equal(boxEventTypes.length,4,'4 events are registered to each class box drag and drop and graph update');
+            equal(boxEventTypes[0],'remove','class boxes have a remore event');
+            equal(boxEventTypes[1],'mousedown','class boxes have a mousedown event');
+            equal(boxEventTypes[2],'click','class boxes have a click event');
+            equal(boxEventTypes[3],'dragstop','class boxes have a dragstop event');
+            equal(textPanelEventTypes.length,3,'3 events are registered to the text panel to create drag and drop');
+            equal(textPanelEventTypes[0],'remove','text panel has a remore event');
+            equal(textPanelEventTypes[1],'mousedown','text panel has a mousedown event');
+            equal(textPanelEventTypes[2],'click','text panel has a click event');
+        });
+
+        test("removeEventListenersTest",function(){
+            Dispatcher.removeEventListeners();
+            var controlEvents = $("#fresh").data("events");
+
+            equal(controlEvents,undefined,'element with class control has events removed');
+        });
+
+        test("freshTest",function(){
+            var textBefore = ($('#text_editor').text());
+            var drawingBefore = ($('#drawing_panel').html());
+
+            Dispatcher.fresh();
+
+            notEqual($('#text_editor').text(),textBefore,'after fresh() text_editor content is not the same as before');
+            equal($('#text_editor').text(),'','after fresh() text_editor contains no text');
+            notEqual($('#drawing_panel').html(),drawingBefore,'after fresh() drawing_panel does not contain dame html as before');
+            equal($('#drawing_panel').html(),'','after fresh() drawing_panel contains no html');
+            equal(Dispatcher.graph,null,'after fresh() graph = null');
+        });
+
+        test("newTest",function(){
+            
+            notEqual($('#drawing_panel').children().size(),0,'drawing panel has children');
+            notEqual($('#text_editor').children().size(),0,'text editor has children');
+
+            $("#fresh").trigger(clickEvent);
+            
+            equal($('#drawing_panel').children().size(),0,'after "new"drawing panel has no children');
+            equal($('#text_editor').children().size(),0,'after "new" text editor has no children');
+
+        });
+
+        test("loadTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"editor/diagrams";
+            var dataType = "html";
+            var data = undefined
+            var onError = "could not load diagrams";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("accountTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"accounts";
+            var dataType = "html";
+            var data = undefined
+            var onError = "could not account options";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("deleteTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"editor/delete/";
+            var dataType = "html";
+            var data = 1;
+            var onError = "could not delete diagram";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("loadSharedTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"editor/shared_diagrams";
+            var dataType = "html";
+            var data = 'username=username';
+            var onError = "could not open graph";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("sharingTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"sharing";
+            var dataType = "html";
+            var data = undefined;
+            var onError = "could not load sharing options";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("unshareTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"sharing/unshare";
+            var dataType = "html";
+            var data = 'username=username';
+            var onError = "could not perform search";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("rejectTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"sharing/reject";
+            var dataType = "html";
+            var data = 'username=username';
+            var onError = "could not unshare";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("liveSearchTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"sharing/user";
+            var dataType = "html";
+            var data = 'search=searchTerm';
+            var onError = "could not reject this share";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("shareTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"sharing/share";
+            var dataType = "html";
+            var data = 'username=username';
+            var onError = "could not share with this user";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $(data),typeof $('<div></div>'),'server returned HTML');
+
+                start();
+            })
+        });
+
+        test("loadGraphTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"editor/load/"+1;
+            var dataType = "json";
+            var data = undefined;
+            var onError = "graph could not be loaded";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $.parseJSON(data),typeof $.parseJSON({"type":"json"}),'server returned JSON');
+
+                start();
+            })
+        });
+
+        /*
+         * test removed, test is brittle.
+         * test will only succeed if no user
+         * is logged in with test browser
+         */
+        /*test("saveTest",function(){
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"editor/save/";
+            var dataType = "json";
+            var data = {graph:{"title":"mock"}};
+            var onError = "graph could not be saved";
+
+            Dispatcher.async(url,dataType,data,function(data){
+                ok(true,'ajax was successful');
+                equal(typeof $.parseJSON(data),typeof $.parseJSON({"type":"json"}),'server returned JSON');
+                start();
+            })
+        });*/
+
+        test("docsTest", function() {
+            stop(2000);
+            expect(2);
+
+            var url = baseURL+"documentation";
+            var dataType = "html";
+            var data = undefined;
+            var onError = "could not open documentation";
+            
+            Dispatcher.async(url,dataType,data,function(data) {
+                ok(true,'ajax was successful');
+                equal(data.match(/id="documentation"/),'id="documentation"','loaded documentation view');
+
+                start();
+            },onError)
+        });
+
+        test("openTest",function(){
+            equal($('#popup').attr('class'),'invisible','before opn() popup has class "invisible"');
+
+            Dispatcher.open('<p>some content</p>');
+
+            equal($('#popup').attr('class'),'visible','after open() popup has class "visible"')
+            equal($('#popup_contents').html(),'<p>some content</p>','html passed to popup is displyed');
+
+            Dispatcher.close();
+        });
+
+        test("closeTest",function(){
+            var popupBefore = $('#popup').html();
+
+            $('#popup').attr('class','visible');
+            equal($('#popup').attr('class'),'visible','before close() popup has class "visible"')
+
+            Dispatcher.close();
+
+            equal($('#popup').html(),popupBefore,'after close() popup has same html to before');
+            notEqual($('#popup').attr('class'),'visible','after close() popup does not have class invisible');
+            equal($('#popup').attr('class'),'invisible','after close() popup has class invisible');
+        });
+
+        /*
+         * Painter Module
+         */
+        module("Painter Module", {
+            
+            setup: function() {
+                Painter.graph=null;
+                $('#drawing_panel').empty();
+                mockSimple = MockGraphBuilder.getSimpleGraph();
+                mockObserver = MockGraphBuilder.getObserver();
+                mockInterpreter = MockGraphBuilder.getInterpreter();
+                mockRecursive = MockGraphBuilder.getRecursiveGraph();
+            },
+            teardown: function() {
+                Painter.graph=null;
+                $('#drawing_panel').empty();
+            }
+        });
+
+        test("paintTest", function(){
+           Painter.paint(mockObserver);
+           
+           equal(typeof Painter.graph,typeof new Graph(),'calling paint sets graph property');
+           equal(Painter.graph.vertices.length,4,'Painter.graph has the same number of vertices as passed graph');
+           equal(Painter.graph.vertices[0].methods.length,3,'vertex 1 has the same number of attributes as in the passed graph');
+        });
+
+        test("createBoxesSimpleTest",function(){
+            Painter.paint(mockSimple);
+
+            equal($('#drawing_panel #object1 .name').children().length,1,'div has correct number of names');
+            equal($('#drawing_panel #object0 .name p').text(),'Class','name div inside object div has correct name');
+            
+        });
+
+        test("createBoxesObserverTest",function(){
+            Painter.paint(mockObserver);
+
+            equal($('#drawing_panel #object1 .name').children().length,2,'div has correct number of names');
+            equal($('#drawing_panel #object0 .name p').text(),'<<interface>>Subject','name div inside object div has correct name');
+            equal(Painter.boxes.length,4,'box array has correct number of box ids');
+        });
+
+        test("arrowLabelTest",function(){
+           Painter.paint(mockObserver);
+
+           equal(Painter.isa[0],"PlainArrow",'isa property is array with first value "PlainArrow"');
+           equal(Painter.isa[1].location,1,'arrow of isa property is located at end of line');
+           equal(Painter.hasa[0],"Arrow",'hasa property is array with first value "Arrow"');
+           equal(Painter.hasa[1].location,1,'arrow of hasa property is located at end of line');
+           equal(Painter.aggr[0],"Diamond",'aggr property is array with first value "Diamond"');
+           equal(Painter.aggr[1].location,0,'arrow of aggr property is located at start of line');
+           equal(Painter.comp[0],"Diamond",'comp property is array with first value "Diamond"');
+           equal(Painter.comp[1].location,0,'arrow of comp property is located at start of line');
+        });
+
+        test("getOverlayTest",function(){
+            var overlay1 = Painter.getOverlay(mockObserver.edges[0]);
+            var overlay2 = Painter.getOverlay(mockInterpreter.edges[2]);
+            var overlay3 = Painter.getOverlay(mockInterpreter.edges[0]);
+
+            equal(overlay1[0][0],"Arrow",'overlay contains the correct arrow type');
+            equal(overlay2[0][0],"Diamond",'overlay contains the correct arrow type');
+            equal(overlay2[1][0],"Label",'overlay a label attribute');
+            equal(overlay2[1][1].label,"1",'overlay a label with correct left multiplicity');
+            equal(overlay2[2][1].label,"1",'overlay a label with correct right multiplicity');
+            equal(overlay3[1][1].label,"role",'overlay has a label with text "role"');
+        })
+
+        test("getConnectionTest",function(){
+            var overlay1 = Painter.getOverlay(mockObserver.edges[0]);
+            var connection1 = Painter.getConnection(overlay1);
+            var connection2 = Painter.getRecursiveConnection(overlay1);
+
+            equal(overlay1[0][0],"Arrow",'overlay contains the correct arrow type');
+            equal(connection1.connector[0],"Flowchart",'getConnection returns jsPlimb connections jsPlumb type "Flowchart"');
+            equal(connection1.overlays[0][0],"Arrow",'connection has correct overlay type');
+            equal(connection2.overlays[0][0],"Arrow",'connection has correct overlay type');
+        });
+
+        test("connectTest",function(){
+            Painter.paint(mockObserver);
+            var overlay1 = Painter.getOverlay(mockObserver.edges[0]);
+            var connection1 = Painter.getConnection(overlay1);
+            Painter.connect(Painter.boxes[0],Painter.boxes[1],connection1);
+            
+            equal(Painter.boxes[0],'object0','boxes array contains correct ids for divs, with same indices as edges array');
+            equal(Painter.boxes[1],'object1','boxes array contains correct ids for divs, with same indices as edges array');
+        });
+
+        test("recursiveConnectionTest",function(){
+            Painter.paint(mockRecursive);
+        });
+       
+        /*
+         * Reader Module
+         */
+        module("Reader Module", {
+            setup: function() {
+                var textObj1 = $('<div>{<br/>&lt;&lt;stereotype&gt&gt<br/>Class/ <br/>+method();<br/>-attribute; <br/>-attribute;<br/>}<br/>{<br/>Klass/ <br/>-attribute; <br/>}<br/>[Class]hasa[Klass]</div>');
+                textInput1 = $(textObj1).text();
+                var textObj2 = $('<div>{<br/>{class; <br/>}</div>');
+                textInput2 = $(textObj2).text();
+                var textObj3 = $('<div>[Class(1)]hasa(has)[Klass(0..*)]</div>');
+                textInput3 = $(textObj3).text();
+                elementInput1 = '{Class/<<stereotype>>;+method(); -attribute; -attribute;}';
+                elementInput2 = '{Class/ attribute;}';
+                elementInput3 = '{object:Object/ +method();}';
+                elementInput4 = '{Klass/ -attribute;}';
+                badElementInput1 = '{<<stereotype>>attribute; +attribute;}';
+                badElementInput2 = '{Class/ Klass/}';
+                relationshipInput1 = '[Class(1)]hasa(role)[Klass(0..*)]';
+                relationshipInput2 = '[SubClass]isa[SuperClass]';
+                endInput1 = '[Class(0..*)]';
+                endInput2 = '[NoMult]';
+                relTypeInput1 = 'hasa(role)';
+                relTypeInput2 = 'isa';
+            },
+            teardown: function() {
+                textInput1=textInput2=textInput3='';
+            }
+        });
+
+        test("read",function(){
+            var g = Reader.read();
+
+            equal(typeof Reader.graph,typeof new Graph(),'Reader has a Graph object');
+            equal(typeof g,typeof new Graph(),'Reader.read reuturns a Graph object');
+            equal(g.vertices[0].names[1],'Class','vertices have expected class names');
+            equal(Reader.graph.vertices.length,2,'graph has same number of vertices as elemtents in text editor')
+            equal(g.edges.length,2,'graph has same number of edges as relationships in text editor');
+            equal(g.edges[0].type,'hasa','edge in graph has type hasa');
+            equal(g.matrix[0][0],-1,'edge starts at correct element');
+            equal(g.matrix[0][1],1,'edges ends at correct element');
+        });
+
+        test("complexread",function(){
+            $('#text_editor').attr('id', 'removed');
+            $('#complex_input').attr('id', 'text_editor');
+
+            var g = Reader.read();
+
+            equal(g.vertices[0].names[1],'Class1','first vertex of graph has expected class name');
+            equal(Reader.graph.vertices.length,6,'graph has expected number of vertices')
+            equal(g.edges.length,5,'graph has expected number of edges');
+            equal(g.edges[0].type,'hasa','edge in graph has expected type');
+            equal(g.matrix[0][0],-1,'edge 1 starts at element 1');
+            equal(g.matrix[0][1],1,'edges 1 ends at element 2');
+            equal(g.matrix[0][2],0,'edge 1 has no connections with vertex 3');
+            equal(g.matrix[0][3],0,'edge 1 has no connections with vertex 4');
+            equal(g.matrix[0][4],0,'edge 1 has no connections with vertex 5');
+            equal(g.matrix[1][0],0,'edge 2 has no connections with vertex 1');
+            equal(g.matrix[1][1],-1,'edge 2 starts at vertex 2');
+            equal(g.matrix[1][2],1,'edge 2 ends at vertex 4');
+            equal(g.matrix[1][3],0,'edge 2 has no connections with vertex 4');
+            equal(g.matrix[1][4],0,'edge 2 has no connections with vertex 5');
+            equal(g.matrix[1][5],0,'edge 2 has no connections with vertex 6');
+            equal(g.matrix[4][0],0,'edge 5 has no connections with vertex 1');
+            equal(g.matrix[4][1],0,'edge 5 has no connections with vertex 2');
+            equal(g.matrix[4][2],0,'edge 5 has no connections with vertex 3');
+            equal(g.matrix[4][3],-1,'edge 5 starts at vertex 5');
+            equal(g.matrix[4][4],0,'edge 5 has no connections with vertex 5');
+            equal(g.matrix[4][5],1,'edge 5 ends at vertex 6');
+
+            $('#text_editor').attr('id', 'complex_input');
+            $('#removed').attr('id', 'text_editor');
+        });
+
+        test("complexread",function(){
+            $('#text_editor').attr('id', 'removed');
+            $('#uml_modeller').attr('id', 'text_editor');
+
+            var g = Reader.read();
+
+            equal(g.vertices[0].names[1],'Modeller','first vertex of graph is Modeller');
+            equal(Reader.graph.vertices.length,7,'graph has 7 defined elements')
+            equal(g.edges.length,6,'graph has 6 edges');
+            equal(g.edges[0].type,'hasa','edge in graph has type hasa');
+            equal(g.matrix[0][0],-1,'edge 1 starts at element 1');
+            equal(g.matrix[0][1],1,'edges 1 ends at element 2');
+            equal(g.matrix[0][2],0,'edge 1 has no connections with vertex 3');
+            equal(g.matrix[0][3],0,'edge 1 has no connections with vertex 4');
+            equal(g.matrix[0][4],0,'edge 1 has no connections with vertex 5');
+            equal(g.matrix[0][5],0,'edge 1 has no connections with vertex 6');
+            equal(g.matrix[0][6],0,'edge 1 has no connections with vertex 7');
+            equal(g.matrix[1][0],-1,'edge 2 starts at vertex 1');
+            equal(g.matrix[1][1],0,'edge 2 has no connection with vertex 2');
+            equal(g.matrix[1][2],1,'edge 2 ends at vertex 3');
+            equal(g.matrix[1][3],0,'edge 2 has no connections with vertex 4');
+            equal(g.matrix[1][4],0,'edge 2 has no connections with vertex 5');
+            equal(g.matrix[1][5],0,'edge 2 has no connections with vertex 6');
+            equal(g.matrix[1][6],0,'edge 2 has no connections with vertex 7');
+            equal(g.matrix[4][0],0,'edge 5 has no connections with vertex 1');
+            equal(g.matrix[4][1],0,'edge 5 has no connections with vertex 2');
+            equal(g.matrix[4][2],0,'edge 5 has no connections with vertex 3');
+            equal(g.matrix[4][3],-1,'edge 5 starts at vertex 4');
+            equal(g.matrix[4][4],1,'edge 5 ends at 5');
+            equal(g.matrix[4][5],0,'edge 5 has no connection with vertex 6');
+            equal(g.matrix[4][6],0,'edge 5 has no connection with vertex 7');
+
+            $('#text_editor').attr('id', 'uml_modeller');
+            $('#removed').attr('id', 'text_editor');
+        });
+
+        test("getElementsTest", function(){
+            Reader.graph = new Graph();
+            Reader.getElements();
+
+            equal(Reader.graph.vertices.length,2,'graph has correct number of vertices');
+            equal(Reader.graph.vertices[0].names[0],'<<stereotype>>','vertex has <stereotpe> as expected');
+            equal(Reader.graph.vertices[0].names[1],'Class','vertex has expected class name');
+            equal(Reader.graph.vertices[0].attributes[1],'-attribute','vertex has second -attribute');
+            equal(Reader.graph.vertices[0].methods[0],'+method()','vertex has +method()');
+            equal(Reader.graph.vertices[0].methods[0],'+method()','vertex has +method()');
+            equal(Reader.graph.vertices[1].methods[0],undefined,'vertex has no methods');
+            equal(Reader.graph.vertices[1].attributes[0],'-attribute','vertex has 1 attribute');
+            equal(Reader.graph.vertices[1].names[0],'Klass','vertex has name Klass and no stereotype');
+        });
+
+        test("getUnformattedElementsTest", function(){
+            Reader.graph = new Graph();
+
+            $('#text_editor').attr('id', 'removed');
+            $('#unformatted_input').attr('id', 'text_editor');
+
+            Reader.getElements();
+
+            equal(Reader.graph.vertices.length,2,'graph has 2 vertices');
+            equal(Reader.graph.vertices[0].names[0],'<<stereotype>>','vertex has <stereotpe');
+            equal(Reader.graph.vertices[0].names[1],'Class','vertex has name Class');
+            equal(Reader.graph.vertices[0].attributes[1],'-attribute','vertex has second -attribute');
+            equal(Reader.graph.vertices[0].methods[0],'+method()','vertex has +method()');
+            equal(Reader.graph.vertices[0].methods[0],'+method()','vertex has +method()');
+            equal(Reader.graph.vertices[1].methods[0],undefined,'vertex has no methods');
+            equal(Reader.graph.vertices[1].attributes[0],'-attribute','vertex has 1 attribute');
+            equal(Reader.graph.vertices[1].names[0],'Klass','vertex has name Klass and no stereotype');
+
+            $('#text_editor').attr('id', 'unformatted_input');
+            $('#removed').attr('id', 'text_editor');
+
+        });
+
+        test("getRelationshipsTest", function(){
+            Reader.graph = new Graph();
+            
+            Reader.getRelationships();
+            
+            equal(Reader.graph.edges.length,2,'graph has expected number of edges');
+            equal(Reader.graph.edges[0].type,'hasa','edge has type hasa');
+            equal(Reader.graph.edges[0].role,'role','edge has role role')
+            equal(Reader.graph.edges[0].leftMult,'1','edge has left multipicity 1')
+            equal(Reader.graph.edges[0].rightMult,'0..*','edge has right multipicity 0..*')
+        });
+
+        test("getUnformattedRelationshipsTest", function(){
+            Reader.graph = new Graph();
+
+            $('#text_editor').attr('id', 'removed');
+            $('#unformatted_input').attr('id', 'text_editor');
+
+            Reader.getRelationships();
+            
+            equal(Reader.graph.edges.length,2,'graph has expected number of edges');
+            equal(Reader.graph.edges[0].type,'hasa','edge has type hasa');
+            equal(Reader.graph.edges[0].role,'role','edge has role role')
+            equal(Reader.graph.edges[0].leftMult,'1','edge has left multipicity 1')
+            equal(Reader.graph.edges[0].rightMult,'0..*','edge has right multipicity 0..*')
+
+            $('#text_editor').attr('id', 'unformatted_input');
+            $('#removed').attr('id', 'text_editor');
+        });
+
+        test("createMatrixTest",function(){
+            Reader.graph = new Graph();
+            Reader.getElements();
+            Reader.getRelationships();
+            
+            equal(typeof Reader.graph.matrix,typeof [],'matrix is an array');
+            equal(typeof Reader.graph.matrix[0],typeof [],'matrix has 2 dimensions');
+            equal(Reader.graph.matrix.length,2,'matrix describes expected number of relationships');
+            equal(Reader.graph.matrix[0].length,2,'first relationship has 2 ends in matrix as expected');
+            equal(Reader.graph.matrix[0][0],-1,'relationship begins at Class');
+            equal(Reader.graph.matrix[0][1],1,'relationship ends at Klass');
+            equal(Reader.graph.matrix[1].length,2,'second relationship has 2 ends in matrix as expected');
+            equal(Reader.graph.matrix[1][0],0,'relationship has no beginning');
+            equal(Reader.graph.matrix[1][1],0,'relationship has no end');
+        });
+
+        test("complexMatrixTest",function(){
+            $('#text_editor').attr('id', 'removed');
+            $('#complex_input').attr('id', 'text_editor');
+
+            Reader.graph = new Graph();
+            Reader.getElements();
+            Reader.getRelationships();
+            
+            equal(typeof Reader.graph.matrix,typeof [],'matrix is and array');
+            equal(typeof Reader.graph.matrix[0],typeof [],'matrix has 2 dimensions');
+            equal(Reader.graph.matrix.length,5,'matrix describes 5 relationships');
+            equal(Reader.graph.matrix[0].length,6,'relationship has 6 ends in matrix');
+            equal(Reader.graph.matrix[1][1],-1,'relationship 2 starts at end 2');
+            equal(Reader.graph.matrix[3][2],-1,'relationship 4 starts at end 3');
+            equal(Reader.graph.matrix[4][5],1,'relationship 5 ends at end 6');
+            equal(Reader.graph.matrix[2][5],0,'relationship 3 has no connection to end 6');
+            equal(Reader.graph.matrix[0][2],0,'relationship 1 has no connection to end 3');
+
+            $('#text_editor').attr('id', 'complex_input');
+            $('#removed').attr('id', 'text_editor');
+        });
+
+        test("matchElementsTest", function(){
+            var results1 = Reader.matchPhrases(textInput1,Reader.lang.ELEMENT_PHRASE);
+           
+            equal(results1.length,2,textInput1+' has 2 elements');
+            equal(results1[0],'{<<stereotype>>Class/ +method();-attribute; -attribute;}','first element of '+textInput1+' is {<<stereotype>>Class +method(); -attribute;-attribute;}');
+            raises(function(){Reader.matchPrases(textInput2,Reader.ELEMENT_PHRASE)},textInput2+' throws exception: ');
+        });
+
+        test("matchRelationshipsTest",function(){
+           var results1 = Reader.matchPhrases(textInput1,Reader.lang.RELATIONSHIP_PHRASE);
+           var results3 = Reader.matchPhrases(textInput3,Reader.lang.RELATIONSHIP_PHRASE);
+
+           equal(results1.length,1,textInput1+' has 1 relationship');
+           raises(function(){Reader.matchPrases(textInput2,Reader.lang.RELATIONSHIP_PHRASE)},textInput2+' throws exception: ');
+           equal(results3.length,1,textInput3+' has 1 relationship');
+        });
+
+        test("matchNameTest",function(){
+            var results1 = Reader.matchWord(elementInput1,Reader.lang.NAME_WORD);
+            var results2 = Reader.matchWord(elementInput2,Reader.lang.NAME_WORD);
+            var results3 = Reader.matchWord(badElementInput2,Reader.lang.NAME_WORD);
+            var results4 = Reader.matchWord(elementInput3,Reader.lang.NAME_WORD);
+            equal(typeof results1,typeof '','returns a string');
+            equal(results1,'Class',elementInput1+' returns class name of Class');
+            equal(results2,'Class',elementInput2+' returns class name of Class');
+            raises(function(){Reader.matchWord(badElementInput1,Reader.lang.NAME_WORD)},badElementInput1+' throws exception: ');
+            equal(results4,'object:Object','returns object name of object:Object');
+        });
+
+        test("matchStereotypeTest",function(){
+            var results1 = Reader.matchWord(elementInput1,Reader.lang.STEREOTYPE_WORD);
+            equal(typeof results1,typeof '','returns a string');
+            equal(results1,'<<stereotype>>',elementInput1+' returns stereotype of <<stereotype>>');
+            raises(function(){Reader.matchWord(elementInput2,Reader.lang.STEREOTYPE_WORD)},elementInput2+' throws exception: ');
+            raises(function(){Reader.matchWord(elementInput3,Reader.lang.STEREOTYPE_WORD)},elementInput3+' throws exception: ');
+        });
+
+        test("matchAttributesTest",function(){
+            var results1 = Reader.matchWords(elementInput1,Reader.lang.ATTRIBUTE_WORD);
+            var results2 = Reader.matchWords(elementInput2,Reader.lang.ATTRIBUTE_WORD);
+            var results3 = Reader.matchWords(elementInput4,Reader.lang.ATTRIBUTE_WORD);
+            equal(results1.length,2,elementInput1+' has 2 attributes');
+            equal(results1[0],'-attribute','first attribute of '+elementInput1+' is -attribute')
+            equal(results1[1],'-attribute','second attribute of '+elementInput1+' is -attribute')
+            equal(results2[0],'attribute','first attribute of '+elementInput4+' is attribute')
+            equal(results3[0],'-attribute','first attribute of '+elementInput3+' is -attribute')
+            raises(function(){Reader.matchWords(elementInput3,Reader.lang.ATTRIBUTE_WORD)},elementInput3+' raises an exception');
+        });
+
+        test("matchMethodsTest",function(){
+            var results1 = Reader.matchWords(elementInput1,Reader.lang.METHOD_WORD);
+            equal(results1.length,1,elementInput1+' has 1 method');
+            equal(results1[0],'+method()','only method of '+elementInput1+' is +method()');
+            raises(function(){Reader.matchmethods(elementInput2)},elementInput2+' throws exception: ');
+        });
+
+        test("matchEndTest",function(){
+           var results1 = Reader.matchWords(relationshipInput1,Reader.lang.END_WORD);
+           var results2 = Reader.matchWords(relationshipInput2,Reader.lang.END_WORD);
+           equal(results1.length,2,relationshipInput1+' has 2 ends');
+           equal(results1[0],'[Class(1)]','first end is [Class(1)]')
+           equal(results1[1],'[Klass(0..*)]','first end is [Klass(0..*)]');
+           equal(results2[1],'[SuperClass]','second end is SuperClass');
+           equal(results1.length,2,relationshipInput1+' has only 2 ends');
+        });
+
+        test("matchMultTest",function(){
+           var results1 = Reader.matchWord(endInput1,Reader.lang.MULT_WORD);
+           equal(typeof results1,typeof '','returns a string');
+           equal(results1,'0..*','end has multiplicity 0..*');
+           raises(function(){Reader.matchMult(endInput2)},endInput2+' throws exception: ');
+        });
+
+        test("matchEndNameTest",function(){
+            var results1 = Reader.matchWord(endInput1,Reader.lang.END_NAME_WORD);
+            var results2 = Reader.matchWord(endInput2,Reader.lang.END_NAME_WORD);
+            equal(typeof results1,typeof '','returns a string');
+            equal(results1,'Class','end has name Class');
+            equal(results2,'NoMult','end has name NoMult');
+        });
+
+        test("matchRelTypeTest",function(){
+            var results1 = Reader.matchWord(relationshipInput1,Reader.lang.REL_TYPE_WORD,1);
+            var results2 = Reader.matchWord(relationshipInput2,Reader.lang.REL_TYPE_WORD,1);
+            equal(typeof results1,typeof '','returns a string');
+            equal(results1,'hasa(role)','relationship has type hasa(role)');
+            equal(results2,'isa','relationship has type isa');
+        });
+
+        test("matchRelTypeNamesTest",function(){
+            var results1 = Reader.matchWords(relTypeInput1,Reader.lang.REL_TYPE_NAMES_WORD);
+            var results2 = Reader.matchWords(relTypeInput2,Reader.lang.REL_TYPE_NAMES_WORD);
+            equal(results1.length,1,'rel type has 1 type name');
+            ok(results1.length<3,'rel type has not more than 1 type name and 1 role name')
+            equal(results1[0],'hasa','rel type has name hasa');
+            equal(results2[0],'isa','rel type has name isa');
+        })
+
+    });
+
+    /*
+     * Assimilator Module
+     */
+    module("Assimilator Module",{
+        setup:function(){
+            oldGraph = MockGraphBuilder.getSimpleGraph();
+            newGraph = MockGraphBuilder.getUpdatedSimpleGraph();
+        },
+        teardown:function(){
+
+        }
+    });
+
+    test("assimTest",function(){
+       var assimGraph = Assimilator.assim(oldGraph,newGraph);
+
+       equal(typeof assimGraph,typeof new Graph(),'Assimilator.assim returns a Graph object');
+       equal(Assimilator.oldGraph.vertices.length,2,'Assimilator has reference to old graph');
+       equal(Assimilator.newGraph.vertices.length,3,'Assimilator has reference to new graph');
+       equal(Assimilator.assimGraph.vertices[2].names[0],'Glass','added vertiex as expected');
+       equal(Assimilator.assimGraph.edges[1].role,'role','edge epdated as expected');
+       equal(Assimilator.assimGraph.matrix[1][2],1,'matrix is updated as expected');
+       equal(Assimilator.assimGraph.title,'simple graph','old title is added to new graph');
+       equal(Assimilator.assimGraph.id,1,'old id is added to new graph');
+       equal(Assimilator.assimGraph.version,1,'old version is added to new graph');
+
+       assimGraph = Assimilator.assim(null,newGraph);
+
+       equal(assimGraph,newGraph,'assimilated graph is same as newGraph when oldGraph is null')
+    });
+
+    test("updateElements",function(){
+        var updated = Assimilator.updateVertices(oldGraph.vertices,newGraph.vertices);
+
+        equal(typeof updated,typeof new Graph().vertices,'update vertices metods returns a Graph');
+        equal(updated.length,3,'updated vertices array has expected length');
+        equal(updated[1].x,47,'x coord in new vertex changed to old as expected');
+        equal(updated[1].attributes[1],'-attribute','expected changed attribute value');
+        equal(updated[2].names[0],'Glass','added vertex as expected');
+    });
+
+    /*
+     * Writer Module
+     */
+    module("Writer Module", {
+        setup: function() {
+            $('#text_editor').empty();
+            mockObserver = MockGraphBuilder.getObserver();
+            observerRelStr = '[Subject]hasa[Observer][ConcreteObserver]hasa[ConcreteSubject][ConcreteSubject]isa[Subject][ConcreteObserver]isa[Observer]'
+            observerElStr = '{<<interface>>Subject/+attach(Observer);+detach(Observer);+notify();}{<<interface>>Observer/+update();}{ConcreteSubject/-subjectState;}{ConcreteObserver/-observerState;+update();}';
+            observerStr = observerElStr+observerRelStr;
+            mockInterpreter = MockGraphBuilder.getInterpreter();
+        },
+        teardown: function() {
+            $('#text_editor').empty();
+        }
+    });
+
+    test("writeTest",function(){
+        Writer.write(mockObserver);
+        equal(typeof Writer.graph,typeof new Graph(),'Writer has reference to a Graph');
+        equal(Writer.graph,mockObserver,'Writer contains reference to passed graph');
+        equal($('#title').text(),'observer','title property of graph is written to title element');
+    });
+
+    test("addTitleTest",function(){
+       Writer.graph = mockObserver;
+       Writer.addTitle();
+       equal($('#title').text(),'observer','title property of graph is written to title element');
+    });
+
+    test("parseGraphTest",function(){
+        Writer.graph = mockObserver;
+        Writer.parseGraph();
+
+        equal($('#text_editor').text(),observerStr,'writes expected diagram semantics to text_editor');
+    });
+
+    test("writeElementsTest",function(){
+       Writer.writeElements(mockObserver.vertices);
+
+       equal($('#text_editor').text(),observerElStr,'writes expected elements to text_editor');
+    });
+
+    test("writeRelationshipsTest",function(){
+        Writer.writeRelationships(mockObserver.edges,mockObserver.matrix);
+
+        equal($('#text_editor').text(),observerRelStr,'writes expected relationships to text_editor');
+    });
+
+    test("writeRelationshpTest",function(){
+        var str1 = Writer.writeRelationship(mockObserver.edges[0]);
+        var str2 = Writer.writeRelationship(mockInterpreter.edges[0]);
+
+        equal(str1,'[Subject]hasa[Observer]','returned expected string representation of edge');
+        equal(str2,'[Client(1)]hasa(role)[Context(1)]','returned expected string representation of edge with role and multiplicity');
+    });
+
+    test("writeToEditortest",function(){
+       Writer.writeToEditor(mockObserver.vertices[0].methods[0]+';',true);
+       Writer.writeToEditor(mockObserver.vertices[0].methods[1]+';',true);
+       equal($('#text_editor').html(),'+attach(Observer);<br>+detach(Observer);<br>','writes with <br> tags when newLine arg set to true');
+       $('#text_editor').empty();
+       
+       Writer.writeToEditor(mockObserver.vertices[0].methods[0]+';',false);
+       Writer.writeToEditor(mockObserver.vertices[0].methods[1]+';',false);
+       equal($('#text_editor').html(),'+attach(Observer);+detach(Observer);','writes without <br> tag when newLine arg set to false');
+       $('#text_editor').empty();
+
+       Writer.writeToEditor('[Class]hasa[Klass]',true,false);
+       equal($('#text_editor').html(),'[Class]hasa[Klass]<br>','writes relationship to text_editor with <br> when newLine set to true')
+       $('#text_editor').empty();
+    });
+
+    /*
+     * Highlighter Module
+     */
+    module("Highlighter Module", {
+        setup: function() {
+            html1 = '{<br>&lt;&lt;stereotype&gt;&gt;<br>Class/<br>+method();<br>-attribute;<br>-attribute;<br>}<br>{<br>Klass/<br>-attribute;<br>}<br>[Class(1)]hasa(role)[Klass(0..*)]<br>[Glass]hasa[Grass]';
+            htmlNames = '{<br>&lt;&lt;stereotype&gt;&gt;<br><span class="names">Class</span>/<br>+method();<br>-attribute;<br>-attribute;<br>}<br>{<br><span class="names">Klass</span>/<br>-attribute;<br>}<br>[Class(1)]hasa(role)[Klass(0..*)]<br>[Glass]hasa[Grass]';
+            htmlEnds = '{<br>&lt;&lt;stereotype&gt;&gt;<br><span class="names">Class</span>/<br>+method();<br>-attribute;<br>-attribute;<br>}<br>{<br><span class="names">Klass</span>/<br>-attribute;<br>}<br>[<span class="names">Class</span>(1)]hasa(role)[<span class="names">Klass</span>(0..*)]<br>[Glass]hasa[Grass]';
+            htmlIds = '{<br><<stereotype>><br>Class/<br><span class="id">+method()</span>;<br><span class="id">-attribute</span>;<br><span class="id">-attribute</span>;<br>}<br>{<br>Klass/<br><span class="id">-attribute</span>;<br>}<br>[Class(<span class="id">1</span>)]hasa(<span class="id">role</span>)[Klass(<span class="id">0..*</span>)]<br>[Glass]hasa[Grass]';
+            htmlReservedWords = '{<br>&lt;&lt;stereotype&gt;&gt;<br>Class/<br>+method();<br>-attribute;<br>-attribute;<br>}<br>{<br>Klass/<br>-attribute;<br>}<br>[Class(1)]<span class="reserved">hasa</span>(role)[Klass(0..*)]<br>[Glass]<span class="reserved">hasa</span>[Grass]';
+            txt1 = '{<<stereotype>>Class/+method(); -attribute; -attribute; }{Klass/ -attribute;}[Class(1)]hasa(role)[Klass(0..*)][Glass]hasa[Grass]';
+            uncleanHtml = '{<br><span class="id">&<span class="id">lt</span>;&<span class="id">lt</span>;stereotype&<span class="id">gt</span>;&<span class="id">gt</span>;</span>&<span class="id">nbsp</span>;Class/<br><span class="id">+method()</span>;<br><span class="id">-attribute</span>;<br><span class="id">-attribute</span>;<br>}<br>{<br>Klass/<br><span class="id">-attribute</span>;<br>}<br>[Class(<span class="id">1</span>)]hasa(<span class="id">role</span>)[Klass(<span class="id">0..*</span>)]<br>[Glass]hasa[Grass]';
+            cleanHtml = '{<br><span class="id">&lt;&lt;stereotype&gt;&gt;</span>Class/<br><span class="id">+method()</span>;<br><span class="id">-attribute</span>;<br><span class="id">-attribute</span>;<br>}<br>{<br>Klass/<br><span class="id">-attribute</span>;<br>}<br>[Class(<span class="id">1</span>)]hasa(<span class="id">role</span>)[Klass(<span class="id">0..*</span>)]<br>[Glass]hasa[Grass]';
+            htmlStereotypes = '{<br><span class="stereotype">&lt;&lt;stereotype&gt;&gt;</span><br>Class/<br>+method();<br>-attribute;<br>-attribute;<br>}<br>{<br>Klass/<br>-attribute;<br>}<br>[Class(1)]hasa(role)[Klass(0..*)]<br>[Glass]hasa[Grass]';
+            invalidHtml = '<span class="invalid">{<br>&lt;&lt;stereotype&gt;&gt;<br>Class/<br>+method();<br>-attribute;<br>-attribute;<br>}<br>{<br>Klass/<br>-attribute;<br>}<br>[Class(1)]hasa(role)[Klass(0..*)]<br>[Glass]hasa[Grass]</span>';
+            specialHtml = '<span class="special">{</span><br>&lt;&lt;stereotype&gt;&gt;<br>Class<span class="special">/</span><br>+method()<span class="special">;</span><br>-attribute<span class="special">;</span><br>-attribute<span class="special">;</span>\<br><span class="special">}</span><br><span class="special">{</span><br>Klass<span class="special">/</span><br>-attribute<span class="special">;</span><br><span class="special">}</span><br><span class="special">[</span>Class<span class="special">(</span>1<span class="special">)</span><span class="special">]</span>hasa<span class="special">(</span>role<span class="special">)</span><span class="special">[</span>Klass<span class="special">(</span>0..*<span class="special">)</span><span class="special">]</span><br><span class="special">[</span>Glass<span class="special">]</span>hasa<span class="special">[</span>Grass<span class="special">]</span>';
+            validHtml = '<span class="invalid"><span class="valid">{<br>&lt;&lt;stereotype&gt;&gt;<br>Class/<br>+method();<br>-attribute;<br>-attribute;\<br>}</span><br><span class="valid">{<br>Klass/<br>-attribute;<br>}</span><br><span class="valid">[Class(1)]hasa(role)[Klass(0..*)]</span><br><span class="valid">[Glass]hasa[Grass]</span></span>';
+            htmlSpecChars = '{<br><<stereotype>><br>Class/<br>+method();<br>-attribute;<br>-attribute;<br>}<br>{<br>Klass/<br>-attribute;<br>}<br>[Class(1)]hasa(role)[Klass(0..*)]<br>[Glass]hasa[Grass]';
+            highlightedHtml = '{<br><span class="stereotype">&lt;&lt;stereotype&gt;&gt;</span><br><span class="names">Class</span>/<br><span class="id">+method()</span>;<br><span class="id">-attribute</span>;<br><span class="id">-attribute</span>;<br>}<br>{<br><span class="names">Klass</span>/<br><span class="id">-attribute</span>;<br>}<br>[<span class="names">Class</span>(<span class="id">1</span>)]<span class="reserved">hasa</span>(<span class="id">role</span>)[<span class="names">Klass</span>(<span class="id">0..*</span>)]<br>[Glass]<span class="reserved">hasa</span>[Grass]';
+
+            Highlighter.html = html1;
+            Highlighter.txt = txt1;
+        },
+        teardown: function() {
+            Highlighter.html = '';
+            Highlighter.txt = '';
+            Highlighter.names = [];
+        }
+    });
+
+    test("highlightTest",function(){
+        Highlighter.highlight();
+        equal($('#text_editor').html(),highlightedHtml,'html successfully highlighted');
+    });
+
+    test("stripOldHighlightsTest",function(){
+        Highlighter.html = htmlNames;
+        Highlighter.stripOldHighlights();
+        equal(Highlighter.html,html1,'<span> wrappings successfully stripped');
+    });
+
+    test("getNamesTest",function(){
+        Highlighter.getNames();
+        equal(Highlighter.names.length,2,'expected number of names added to names array');
+    });
+
+    test("decodeHtmlSpecialCharsTest",function(){
+        var newHtml = Highlighter.decodeHtmlSpecialChars();
+        equal(newHtml,htmlSpecChars,'converted html special chars &lt; &gt; and  to < > and space');
+    });
+
+    test("encodeHtmlSpecialCharsTest",function(){
+        Highlighter.html = htmlSpecChars;
+        var newHtml = Highlighter.encodeHtmlSpecialChars();
+        equal(newHtml,html1,'converted < > and space to html special chars &lt; &gt; and ');
+    });
+
+
+    test("highlightStereotypeTest",function(){
+        var newHtml = Highlighter.highlightStereotypes(Highlighter.html);
+        equal(newHtml,htmlStereotypes,'wrapped <span>s around stereotypes');
+    });
+
+    test("highlightEndWordMatchesTest",function(){
+        Highlighter.getNames();
+        Highlighter.html = Highlighter.highlightNames(Highlighter.html);
+        var newText = Highlighter.highlightEndWordMatches(Highlighter.html);
+        equal(newText,htmlEnds,'wrapped <span>s around all valid end names ');
+    });
+
+    test("highlightNamesTest",function(){
+       var newText = Highlighter.highlightNames(Highlighter.html);
+       equal(newText,htmlNames,'wrapped <span>s around all valid name instances, with class="names"');
+    });
+
+    test("highlightIdsTest",function(){
+        Highlighter.html = Highlighter.decodeHtmlSpecialChars();
+        Highlighter.html = Highlighter.highlightIds(Highlighter.html);
+        var newText = Highlighter.decodeHtmlSpecialChars();
+        equal(newText,htmlIds,'wrapped <span>s around all ids, with class="names"')
+    });
+
+    test("highlightReservedTest",function(){
+        var newText = Highlighter.highlightReserved(Highlighter.html);
+        equal(newText,htmlReservedWords,'wrapped <span>s around all reserved words, with class="names"')
+    });
+
+
+    </script>
+  </head>
+  <body>
+      <h1 id="qunit-header">QUnit Javascript Unit Test Runner</h1>
+     <h2 id="qunit-banner"></h2>
+     <div id="qunit-testrunner-toolbar"></div>
+     <h2 id="qunit-userAgent"></h2>
+     <ol id="qunit-tests"></ol>
+     <div id="qunit-fixture">
+
+         <!-- available fixtures for tests -->
+         
+         <a class="control" id="fresh" href="#">control</a>
+         <a class="control" id="load" href="#">control</a>
+         <a class="control" id="save" href="#">control</a>
+         <a class="control" id="print" href="#">control</a>
+         <a class="control" id="share" href="#">control</a>
+         <a class="control" id="docs" href="#">control</a>
+         <a class="control" id="update" href="#">control</a>
+         
+         <a class="control" id="close" href="#">control</a>
+         <span id="title">title</span>
+         <div id="text_panel">
+         <div id="text_controls"></div>
+         <div id="text_editor">{<br/>&lt;&lt;stereotype&gt&gt<br/>Class/<br/>+method();<br/>-attribute;<br/>-attribute;<br/>}<br/>{<br/>Klass/<br/>-attribute;<br/>}<br/>[Class(1)]hasa(role)[Klass(0..*)]<br/>[Glass]hasa[Grass]</div>
+         </div>
+         <div id="unformatted_input">
+            {&lt;&lt;stereotype&gt&gt
+            Class/
++method();-attribute;-attribute;}
+            {Klass/
+            -attribute;
+            }
+            [Class(1)]hasa(role)[Klass(0..*)][Glass]hasa[Grass]
+         </div>
+         <div id="complex_input">
+            {&lt;&lt;stereotype&gt;&gt;
+            Class1/ +method();-attribute;-attribute;}
+            {Class2/
+            -attribute;
+            }
+            {Class3/}{Class4/}{Class5/}{Class6/}
+            [Class1(1)]hasa(role)[Class2(0..*)]
+            [Class2]hasa[Class3]
+            [Class2]hasa[Class4]
+            [Class3]hasa[Class5]
+            [Class4]hasa[Class6]
+         </div>
+         <div id="uml_modeller">
+            {&lt;&lt;stereotype&gt;&gt;Modeller/-attribute;-attribute;+method();+method();}
+            {&lt;&lt;stereotype&gt;&gt;Writer/-attribute;-attribute;+method();+method();}
+            {&lt;&lt;stereotype&gt;&gt;Painter/-attribute;-attribute;+method();+method();}
+            {&lt;&lt;stereotype&gt;&gt;Graph/-attribute;-attribute;+method();+method();}
+            {&lt;&lt;stereotype&gt;&gt;Vertex/-attribute;-attribute;+method();+method();}
+            {&lt;&lt;stereotype&gt;&gt;Edge/-attribute;-attribute;+method();+method();}
+            {&lt;&lt;stereotype&gt;&gt;Reader/-attribute;-attribute;+method();+method();}
+            [Modeller]hasa[Writer]
+            [Modeller]hasa[Painter]
+            [Modeller]hasa[Reader]
+            [Modeller]hasa[Graph]
+            [Graph]hasa[Vertex]
+            [Graph]hasa[Edge]
+         </div>
+         <div id="drawing_panel">
+             <div id="object1" class="object"></div>
+         </div>
+         <div id="popup" class="visible">
+            <div class="control" id="close">X</div>
+            <div id="popup_contents">
+                <p>untangled uml was unable to run.</p>
+                <p> Please make sure you have Javascript enabled in your browser.</p>
+            </div>
+        </div>
+     </div>
+  </body>
+</html>
