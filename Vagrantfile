@@ -60,6 +60,7 @@ sudo apt-get -y upgrade
 # install apache 2.5 and php 5.5
 sudo apt-get install -y apache2
 sudo apt-get install -y php5 php5-cli php5-mcrypt php5-intl libapache2-mod-php5 php5-memcached php5-imagick
+sudo apt-get install -y php5-gd
 
 # install mysql and give password to installer
 sudo debconf-set-selections <<< "mysql-server mysql-server/root_password password $MYSQL_PASSWORD"
