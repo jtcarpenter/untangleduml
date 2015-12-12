@@ -1,5 +1,6 @@
 /index.php
 /captcha/*.jpg
+/.htaccess
 application/config/database.php
 .DS_Store
 .vagrant
